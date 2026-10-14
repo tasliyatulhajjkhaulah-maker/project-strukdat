@@ -17,5 +17,5 @@
   - Mengurutkan laporan dengan sort
   - Mencari data pesanan
 
-![Tampilan](images/gambar.png)
+![Tampilan](gambar/tampilan.png)
 
