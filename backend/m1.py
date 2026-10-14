@@ -33,7 +33,6 @@ def teks(pesanan) :
 
 
 def detail_pesanan(pesanan):
-    """Beberapa baris untuk tampilan detail satu pesanan."""
     selesai = "-"
     if pesanan[T_SELESAI_DETIK] is not None:
         selesai = jam(pesanan[T_SELESAI_DETIK])
@@ -60,11 +59,11 @@ def buat_pesanan(nama, jenis, nomor, t_masuk, resto="-", menu="-", harga=0):
     
     
 
-class array :
-    def __init__ (pesan) :
-        pesan.cap = 4
-        pesan.size = 0
-        pesan.data = [None] * pesan.cap
+class array :                                  
+    def __init__ (pesan) :                  
+        pesan.cap = 4                            #pesan.cap itu kapasitas array nya
+        pesan.size = 0                           #pesan.size itu elemen yang ada dalm kapasitas arraynya
+        pesan.data = [None] * pesan.cap          #pesan.data tempat penyimpana elemen
 
     def _grow (pesan) :
         baru = [None] * (pesan.cap*2)
@@ -109,13 +108,9 @@ class array :
 
 
 class Linkedlist :
-    def __init__ (pesan, n) :
-        pesan.n = n
-        pesan.next = None
-
     def __init__(pesan) :
-      pesan.head = pesan.tail = None
-      pesan.size = 0
+         pesan.head = pesan.tail = None
+         pesan.size = 0
 
     def append (pesan,n) :
         node = {"n" : n, "next" : None}

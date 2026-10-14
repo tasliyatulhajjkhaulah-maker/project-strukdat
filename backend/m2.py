@@ -1,4 +1,5 @@
-from m1 import array, STATUS, OID, tambah
+import re 
+from .m1 import array, STATUS, OID, tambah
 
 class Queue :
     def __init__(pesan, cap = 8) :
@@ -121,106 +122,176 @@ def hapus(stack, struktur, i) :
 
     return p
 
-def undo (stack, queue) :
-    if stack.kosong() :
+
+def undo(stack, queue, redo_stack=None):
+    if stack.kosong():
         return None
 
     aksi = stack.pop()
     jenis = aksi[0]
 
-
-
-    if jenis == "Lanjut" :
+    if jenis == "Lanjut":
         p = aksi[1]
-        queue.enqueue_depan (p)
+        queue.enqueue_depan(p)
 
-        return f"undo Lanjut : {p[OID] } BALIK ANTRI KE DEPAN"
-
-    if jenis == "catat" :
+    elif jenis == "catat":
         struktur = aksi[1]
-        i = aksi [2]
+        i = aksi[2]
         p = struktur.remove(i)
+        aksi = ("catat", struktur, i, p)
 
-        return f"undo catat : { p[OID]} dicabut dari indeks {i}"
-    
-
-    if jenis == "Hapus" :
+    elif jenis == "Hapus":
         struktur = aksi[1]
         i = aksi[2]
         p = aksi[3]
-        struktur.insert (i, p)
+        struktur.insert(i, p)
 
-        return f"undo Hapus {p[OID]} balik ke indeks {i}"
+    else:
+        stack.push(aksi)
+        return None
 
-    return None
+    if redo_stack is not None:
+        redo_stack.push(aksi)
+
+    return f"Undo berhasil: {jenis}"
+
+
+def redo(stack, queue, redo_stack):
+    if redo_stack.kosong():
+        return None
+
+    aksi = redo_stack.pop()
+    jenis = aksi[0]
+
+    if jenis == "Lanjut":
+        p = queue.dequeue()
+        stack.push(("Lanjut", p))
+
+    elif jenis == "catat":
+        struktur = aksi[1]
+        i = aksi[2]
+        p = aksi[3]
+        struktur.insert(i, p)
+        stack.push(("catat", struktur, i))
+
+    elif jenis == "Hapus":
+        struktur = aksi[1]
+        i = aksi[2]
+        p = struktur.remove(i)
+        stack.push(("Hapus", struktur, i, p))
+
+    else:
+        redo_stack.push(aksi)
+        return None
+
+    return f"Redo berhasil: {jenis}"
 
 
 
+PRIORITAS = {
+    "+": 1,
+    "-": 1,
+    "*": 2,
+    "/": 2
+}
 
 
-if __name__ == "__main__":
-    # 1. Tes Queue
-    antrean = Queue()
+def ke_postfix(infix):
+    pola = r"\d+(?:\.\d+)?|[()+\-*/]"
+    token = []
+    posisi = 0
 
-    antrean.enqueue("A")
-    antrean.enqueue("B")
-    antrean.enqueue("C")
+    for cocok in re.finditer(pola, infix):
+        if infix[posisi:cocok.start()].strip():
+            raise ValueError("Ada karakter yang tidak valid.")
 
-    assert antrean.size == 3
-    assert antrean.intip() == "A"
-    assert antrean.dequeue() == "A"
-    assert antrean.dequeue() == "B"
-    assert antrean.size == 1
+        token.append(cocok.group())
+        posisi = cocok.end()
 
-    print("[OK] Queue berhasil")
+    if infix[posisi:].strip() or not token:
+        raise ValueError("Ekspresi kosong atau tidak valid.")
 
-    # 2. Tes Queue saat kapasitas penuh
-    antrean = Queue(cap=2)
-    antrean.enqueue("A")
-    antrean.enqueue("B")
-    antrean.enqueue("C")
-
-    assert antrean.cap == 4
-    assert antrean.size == 3
-    assert antrean.get(0) == "A"
-    assert antrean.get(1) == "B"
-    assert antrean.get(2) == "C"
-
-    print("[OK] Queue resize berhasil")
-
-    # 3. Tes Stack
+    hasil = []
     stack = Stack()
-    stack.push("A")
-    stack.push("B")
 
-    assert stack.ukuran() == 2
-    assert stack.intip() == "B"
-    assert stack.pop() == "B"
-    assert stack.pop() == "A"
-    assert stack.kosong()
+    for t in token:
+        if re.fullmatch(r"\d+(?:\.\d+)?", t):
+            hasil.append(t)
 
-    print("[OK] Stack berhasil")
+        elif t == "(":
+            stack.push(t)
 
-    # 4. Tes lanjut dan undo
-    antrean = Queue()
+        elif t == ")":
+            while not stack.kosong() and stack.intip() != "(":
+                hasil.append(stack.pop())
+
+            if stack.kosong():
+                raise ValueError("Kurung buka tidak ditemukan.")
+
+            stack.pop()
+
+        else:
+            while (
+                not stack.kosong()
+                and stack.intip() != "("
+                and PRIORITAS[stack.intip()] >= PRIORITAS[t]
+            ):
+                hasil.append(stack.pop())
+
+            stack.push(t)
+
+    while not stack.kosong():
+        operator = stack.pop()
+
+        if operator == "(":
+            raise ValueError("Kurung tutup tidak ditemukan.")
+
+        hasil.append(operator)
+
+    return " ".join(hasil)
+
+
+def hitung_postfix(ekspresi_postfix):
     stack = Stack()
 
-    pesanan = ("O-001",)
-    antrean.enqueue(pesanan)
+    for t in ekspresi_postfix.split():
+        if t not in PRIORITAS:
+            stack.push(float(t))
+        else:
+            if stack.ukuran() < 2:
+                raise ValueError("Ekspresi tidak valid.")
 
-    hasil = lanjut(antrean, stack)
+            b = stack.pop()
+            a = stack.pop()
 
-    assert hasil == pesanan
-    assert antrean.kosong()
-    assert not stack.kosong()
+            if t == "+":
+                hasil = a + b
+            elif t == "-":
+                hasil = a - b
+            elif t == "*":
+                hasil = a * b
+            else:
+                if b == 0:
+                    raise ZeroDivisionError(
+                        "Tidak bisa membagi dengan nol."
+                    )
+                hasil = a / b
 
-    hasil_undo = undo(stack, antrean)
+            stack.push(hasil)
 
-    assert hasil_undo is not None
-    assert antrean.size == 1
-    assert antrean.intip() == pesanan
-    assert stack.kosong()
+    if stack.ukuran() != 1:
+        raise ValueError("Ekspresi tidak valid.")
 
-    print("[OK] Lanjut dan undo berhasil")
+    return stack.pop()
 
-    print("\nSEMUA PENGUJIAN BERHASIL!")
+
+def hitung(infix):
+    hasil_postfix = ke_postfix(infix)
+    total = hitung_postfix(hasil_postfix)
+
+    if isinstance(total, float) and total.is_integer():
+        total = int(total)
+
+    return hasil_postfix, total
+
+                         
