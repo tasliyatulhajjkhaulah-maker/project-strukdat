@@ -16,7 +16,7 @@ from backend.m1 import (array, Linkedlist, muat, buat_pesanan,
                                 T_MASUK_DETIK, HARGA, OID)
 from backend.m2 import (Queue, Stack, isi_antrean,
                                 lanjut, catat, hapus,
-                                undo, redo, hitung)
+                                undo, redo, hitung, hitung_dengan_jejak)
 from backend.m3 import (laporan, urutkan, linear_search, cari_semua,teks_ringkasan)
 
 BATAS_SORT = 15000      # sort O(n^2): lebih dari ini terlalu lama untuk satu klik
@@ -224,29 +224,53 @@ class Aksi:
     )
 
     
-    def kasir(self, nilai):
+    
+    def kasir(pesan, nilai):
         ekspresi = nilai[0].strip()
 
         if not ekspresi:
             raise ValueError("Ekspresi perhitungan tidak boleh kosong.")
 
         t0 = time.perf_counter()
-        postfix, total = hitung(ekspresi)
+        postfix, total, langkah = hitung_dengan_jejak(ekspresi)
         waktu = ms_sejak(t0)
 
+        def rupiah(angka):
+            if isinstance(angka, float) and angka.is_integer():
+                angka = int(angka)
+            return f"{angka:,}".replace(",", ".")
+
+        garis = "=" * 100
         teks = (
-            "KASIR - INFIX KE POSTFIX\n"
-            "========================================\n\n"
-            + "Ekspresi infix : " + ekspresi + "\n"
-            + "Hasil postfix  : " + postfix + "\n"
-            + "Total           : " + str(total) + "\n\n"
-            + "========================================\n"
-            + "Prioritas operator:\n"
-            + "* dan / lebih tinggi daripada + dan -.\n"
-            + "Perhitungan menggunakan Stack."
+            "Stack: hitung struk lewat postfix\n"
+            "Struk ditulis infix, lalu dihitung dua tahap dengan stack: "
+            "tahap 1 infix menjadi postfix, tahap 2 postfix dievaluasi.\n\n"
+            "Struk belanja (infix)\n"
+            + ekspresi + "\n\n"
+            "Struk : " + ekspresi + "\n"
+            "Postfix: " + postfix + "\n"
+            "TOTAL : Rp" + rupiah(total) + "\n\n"
+            + "-" * 100 + "\n"
+            + f"{'langkah':<10}{'token':<10}{'tindakan':<42}"
+            f"{'stack':<18}{'output'}\n"
+            + "-" * 100 + "\n"
         )
 
-        return "M2 - KASIR / STACK", waktu, teks
+        for no, token, tindakan, stack, output in langkah:
+            teks += (
+                f"{no:<10}{token:<10}{tindakan:<42}"
+                f"{stack:<18}{output}\n"
+            )
+
+        teks += (
+            "\n" + garis + "\n"
+            + "Tahap 1 mengubah infix menjadi postfix.\n"
+            + "Tahap 2 mengevaluasi postfix menggunakan Stack.\n"
+            + "Prioritas operator: * dan / lebih tinggi daripada + dan -.\n"
+        )
+
+        return "M2 - stack", waktu, teks
+
 
    
     def laporan_harian(pesan, nilai):
@@ -363,16 +387,24 @@ def buat_menu(aksi):
         daftar.append(m)
     
     daftar.append("M2 - ANTREAN DAN UNDO")
-    daftar.append(Menu("kasir",
-                        "STACK - POSTFIX (MESIN KASIR)",
-                        "M2 - KASIR / STACK",
-                        "Konversi infix menjadi postfix dan hitung hasilnya.",
-                        "HITUNG TOTAL",
-                        [
-                            ("Ekspresi infix", "10 + 5 * 2", None,
-                            "Contoh: (10 + 5) * 2")
-                        ],
-                        aksi.kasir))
+
+    daftar.append(Menu(
+        "kasir",
+        "Stack: hitung struk lewat postfix",
+        "M2 - stack",
+        "Struk ditulis infix, lalu dihitung dua tahap dengan stack.",
+        "HITUNG",
+        [
+            (
+                "Struk belanja (infix)",
+                "( 3 * 12000 ) + ( 2 * 8500 ) - 5000",
+                None,
+                "angka, +, -, *, / dan tanda kurung"
+            )
+        ],
+        aksi.kasir
+    ))
+    
 
     daftar.append(Menu("undo",
                         "STACK - UNDO",
@@ -580,6 +612,7 @@ def jalankan(path_csv):
     root.mainloop()
 if __name__ == "__main__":
     jalankan("data/pesanan.csv")
+
 
 
 

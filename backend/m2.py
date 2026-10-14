@@ -188,6 +188,7 @@ def redo(stack, queue, redo_stack):
 
 
 
+
 PRIORITAS = {
     "+": 1,
     "-": 1,
@@ -196,7 +197,7 @@ PRIORITAS = {
 }
 
 
-def ke_postfix(infix):
+def _token_infix(infix):
     pola = r"\d+(?:\.\d+)?|[()+\-*/]"
     token = []
     posisi = 0
@@ -204,31 +205,58 @@ def ke_postfix(infix):
     for cocok in re.finditer(pola, infix):
         if infix[posisi:cocok.start()].strip():
             raise ValueError("Ada karakter yang tidak valid.")
-
         token.append(cocok.group())
         posisi = cocok.end()
 
     if infix[posisi:].strip() or not token:
         raise ValueError("Ekspresi kosong atau tidak valid.")
 
-    hasil = []
-    stack = Stack()
+    return token
 
-    for t in token:
+
+def _isi_stack(stack):
+    return " ".join(
+        str(stack.isi.get(i))
+        for i in range(stack.ukuran())
+    ) or "kosong"
+
+
+def hitung_dengan_jejak(infix):
+    token = _token_infix(infix)
+    stack = Stack()
+    output = []
+    baris = []
+
+    def catat(no, t, tindakan, hasil_output):
+        baris.append((
+            no, t, tindakan,
+            _isi_stack(stack),
+            " ".join(hasil_output) or "kosong"
+        ))
+
+    for i, t in enumerate(token, 1):
+        no = "1." + str(i)
+
         if re.fullmatch(r"\d+(?:\.\d+)?", t):
-            hasil.append(t)
+            output.append(t)
+            catat(no, t, "operand, langsung ke output", output)
 
         elif t == "(":
             stack.push(t)
+            catat(no, t, "push ( ke stack", output)
 
         elif t == ")":
-            while not stack.kosong() and stack.intip() != "(":
-                hasil.append(stack.pop())
-
-            if stack.kosong():
+            if stack.kosong() or "(" not in [
+                str(stack.isi.get(j))
+                for j in range(stack.ukuran())
+            ]:
                 raise ValueError("Kurung buka tidak ditemukan.")
 
+            while not stack.kosong() and stack.intip() != "(":
+                output.append(stack.pop())
+
             stack.pop()
+            catat(no, t, "pop sampai ( ; lalu buang (", output)
 
         else:
             while (
@@ -236,33 +264,39 @@ def ke_postfix(infix):
                 and stack.intip() != "("
                 and PRIORITAS[stack.intip()] >= PRIORITAS[t]
             ):
-                hasil.append(stack.pop())
+                output.append(stack.pop())
 
             stack.push(t)
+            catat(no, t, "push operator ke stack", output)
 
     while not stack.kosong():
-        operator = stack.pop()
-
-        if operator == "(":
+        op = stack.pop()
+        if op == "(":
             raise ValueError("Kurung tutup tidak ditemukan.")
+        output.append(op)
+        catat("1.akhir", op, "pop sisa stack ke output", output)
 
-        hasil.append(operator)
+    postfix = " ".join(output)
 
-    return " ".join(hasil)
+    # Tahap 2: evaluasi postfix
+    stack_hitung = Stack()
 
+    for i, t in enumerate(output, 1):
+        no = "2." + str(i)
 
-def hitung_postfix(ekspresi_postfix):
-    stack = Stack()
-
-    for t in ekspresi_postfix.split():
         if t not in PRIORITAS:
-            stack.push(float(t))
+            angka = float(t)
+            stack_hitung.push(angka)
+            catat(no, t, "operand, push ke stack", [
+                str(stack_hitung.isi.get(j))
+                for j in range(stack_hitung.ukuran())
+            ])
         else:
-            if stack.ukuran() < 2:
+            if stack_hitung.ukuran() < 2:
                 raise ValueError("Ekspresi tidak valid.")
 
-            b = stack.pop()
-            a = stack.pop()
+            b = stack_hitung.pop()
+            a = stack_hitung.pop()
 
             if t == "+":
                 hasil = a + b
@@ -277,21 +311,79 @@ def hitung_postfix(ekspresi_postfix):
                     )
                 hasil = a / b
 
-            stack.push(hasil)
+            stack_hitung.push(hasil)
+
+            nilai_stack = [
+                str(stack_hitung.isi.get(j))
+                for j in range(stack_hitung.ukuran())
+            ]
+
+            catat(
+                no, t,
+                "hitung " + str(a) + " " + t + " " + str(b)
+                + " = " + str(hasil),
+                nilai_stack
+            )
+
+    if stack_hitung.ukuran() != 1:
+        raise ValueError("Ekspresi tidak valid.")
+
+    total = stack_hitung.pop()
+
+    if total.is_integer():
+        total = int(total)
+
+    return postfix, total, baris
+
+
+def ke_postfix(infix):
+    postfix, _, _ = hitung_dengan_jejak(infix)
+    return postfix
+
+
+def hitung_postfix(ekspresi_postfix):
+    # Pertahankan fungsi ini agar tetap kompatibel dengan pemanggil lama.
+    stack = Stack()
+
+    for t in ekspresi_postfix.split():
+        if t not in PRIORITAS:
+            stack.push(float(t))
+            continue
+
+        if stack.ukuran() < 2:
+            raise ValueError("Ekspresi tidak valid.")
+
+        b = stack.pop()
+        a = stack.pop()
+
+        if t == "+":
+            hasil = a + b
+        elif t == "-":
+            hasil = a - b
+        elif t == "*":
+            hasil = a * b
+        else:
+            if b == 0:
+                raise ZeroDivisionError("Tidak bisa membagi dengan nol.")
+            hasil = a / b
+
+        stack.push(hasil)
 
     if stack.ukuran() != 1:
         raise ValueError("Ekspresi tidak valid.")
 
-    return stack.pop()
+    total = stack.pop()
+    return int(total) if total.is_integer() else total
 
 
 def hitung(infix):
-    hasil_postfix = ke_postfix(infix)
-    total = hitung_postfix(hasil_postfix)
+    postfix, total, _ = hitung_dengan_jejak(infix)
+    return postfix, total
 
-    if isinstance(total, float) and total.is_integer():
-        total = int(total)
 
-    return hasil_postfix, total
 
-                         
+
+
+
+
+
