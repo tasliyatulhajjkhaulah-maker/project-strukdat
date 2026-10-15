@@ -48,12 +48,6 @@ def detail_pesanan(pesanan):
  
  
 def buat_pesanan(nama, jenis, nomor, t_masuk, resto="-", menu="-", harga=0):
-    """Membuat tuple pesanan baru dari form UI (yang diisi user hanya nama).
- 
-    jenis   : JENIS_VIP / JENIS_PRIORITAS / JENIS_REGULER
-    nomor   : nomor urut oid berikutnya (dipegang UI, mulai 200001)
-    t_masuk : detik sejak tengah malam
-    """
     oid = "O-" + str(nomor).zfill(6)
     return (oid, nama, resto, menu, harga, jenis, t_masuk, None, "ANTRE")
     

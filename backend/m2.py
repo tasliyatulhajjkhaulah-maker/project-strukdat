@@ -342,7 +342,6 @@ def ke_postfix(infix):
 
 
 def hitung_postfix(ekspresi_postfix):
-    # Pertahankan fungsi ini agar tetap kompatibel dengan pemanggil lama.
     stack = Stack()
 
     for t in ekspresi_postfix.split():
