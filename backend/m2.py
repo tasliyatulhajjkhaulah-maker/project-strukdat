@@ -1,388 +1,429 @@
-import re 
-from .m1 import array, STATUS, OID, tambah
 
-class Queue :
-    def __init__(pesan, cap = 8) :
-        pesan.cap = cap
-        pesan.data = [None]*pesan.cap
-        pesan.head = 0
-        pesan.size = 0
+from .m1 import Array, I_OID
+ 
 
-    def kosong (pesan) :
-        return pesan.size == 0
+##LIFO
+class Stack:
+    #manggil fungsi yang ada di array
+    def __init__(pesan):
+        pesan._a = Array()
 
-    def _grow(pesan) :
-        baru = [None] * (pesan.cap*2)
-
-        for i in range (pesan.size) :
-            baru[i] = pesan.data[(pesan.head + i) % pesan.cap]
-        pesan.data = baru 
-        pesan.cap *= 2
-        pesan.head = 0
-        
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
-    def enqueue (pesan, n):
-        if pesan.size == pesan.cap :
-            pesan._grow()
-
-        i =(pesan.head + pesan.size) % pesan.cap
-        pesan.data[i] = n
-
-        pesan.size +=1
-
-    def dequeue (pesan) :
-        if pesan.size == 0:
-            raise IndexError()
-
-        n = pesan.data[pesan.head]
-        pesan.data[pesan.head] = None
-        pesan.head = (pesan.head + 1) % pesan.cap
-
-        pesan.size -= 1
-
-        return n
-
-    def enqueue_depan(pesan, n) :
-        if pesan.size == pesan.cap :
-            pesan._grow()
-
-        pesan.head = (pesan.head - 1) % pesan.cap
-        pesan.data[pesan.head] = n
-
-        pesan.size += 1
+    #nambahin pesanan jadi paling atas 
+    def push(pesan, x):
+        pesan._a.append(x)
 
 
-    def intip (pesan) :
-        if pesan.size == 0 :
-            raise IndexError ()
+    # hapus pesanan, brarti yang paling atas karena stack
+    def pop(pesan):
+        if len(pesan._a) == 0:
+            raise IndexError("tumpukan kosong")
+        return pesan._a.pop()
 
-        return pesan.data[pesan.head]
+    def peek(pesan):
+        if len(pesan._a) == 0:
+            raise IndexError("tumpukan kosong")
+        return pesan._a.get(len(pesan._a) - 1)
 
-    def get(pesan, i) :
-        if i <0 or i>= pesan.size :
-            raise IndexError()
+    # kalau kosong bararti balik mulai isi dari jumalh pesanan di a
+    def kosong(pesan):
+        return len(pesan._a) == 0
 
-        return pesan.data[(pesan.head + i) % pesan.cap]
+    #buat tau jumlah elemen di a
+    def __len__(pesan):
+        return len(pesan._a)
+ 
+    def isi(pesan):
+        return pesan._a.potong(0, len(pesan._a))
+ 
+    def kosongkan(pesan):
+        while len(pesan._a) > 0:
+            pesan._a.pop()
+ 
 
+# buat mesin kasir
+OPERATOR = ("+", "-", "*", "/")
 
-class Stack :
-    def __init__(pesan) :
-        pesan.isi = array()
-
-    def kosong (pesan) :
-        return pesan.isi.size == 0
-
-    def ukuran(pesan) :
-        return pesan.isi.size 
-
-    def push (pesan, n) :
-        pesan.isi.append(n)
-
-    def pop (pesan ):
-        if pesan.isi.size == 0 :
-            raise IndexError ()
-
-        return pesan.isi.remove (pesan.isi.size -1)
-
-    def intip (pesan) :
-        if pesan.isi.size == 0 :
-            raise IndexError ()
-
-        return pesan.isi.get(pesan.isi.size -1)
-
-def isi_antrean(arr, antrean) :
-    jumlah = 0 
-    for i in range (arr.size) :
-        p = arr.get(i)
-
-        if p[STATUS] == "ANTRE" :
-            antrean.enqueue(p)
-
-            jumlah +=1
-    return jumlah
-
-def lanjut (queue, stack) :
-    if queue.kosong ():
-        return None
-
-    p = queue.dequeue()
-    stack.push(("Lanjut",p))
-
-    return p
-
-def catat(stack, struktur, pesanan) :
-    i = tambah(struktur, pesanan)
-    stack.push(("catat", struktur, i))
-
-    return i
-
-def hapus(stack, struktur, i) :
-    p = struktur.remove(i)
-    stack.push(("Hapus", struktur, i, p))
-
-    return p
-
-
-def undo(stack, queue, redo_stack=None):
-    if stack.kosong():
-        return None
-
-    aksi = stack.pop()
-    jenis = aksi[0]
-
-    if jenis == "Lanjut":
-        p = aksi[1]
-        queue.enqueue_depan(p)
-
-    elif jenis == "catat":
-        struktur = aksi[1]
-        i = aksi[2]
-        p = struktur.remove(i)
-        aksi = ("catat", struktur, i, p)
-
-    elif jenis == "Hapus":
-        struktur = aksi[1]
-        i = aksi[2]
-        p = aksi[3]
-        struktur.insert(i, p)
-
-    else:
-        stack.push(aksi)
-        return None
-
-    if redo_stack is not None:
-        redo_stack.push(aksi)
-
-    return f"Undo berhasil: {jenis}"
-
-
-def redo(stack, queue, redo_stack):
-    if redo_stack.kosong():
-        return None
-
-    aksi = redo_stack.pop()
-    jenis = aksi[0]
-
-    if jenis == "Lanjut":
-        p = queue.dequeue()
-        stack.push(("Lanjut", p))
-
-    elif jenis == "catat":
-        struktur = aksi[1]
-        i = aksi[2]
-        p = aksi[3]
-        struktur.insert(i, p)
-        stack.push(("catat", struktur, i))
-
-    elif jenis == "Hapus":
-        struktur = aksi[1]
-        i = aksi[2]
-        p = struktur.remove(i)
-        stack.push(("Hapus", struktur, i, p))
-
-    else:
-        redo_stack.push(aksi)
-        return None
-
-    return f"Redo berhasil: {jenis}"
-
-
-
-
-PRIORITAS = {
-    "+": 1,
-    "-": 1,
-    "*": 2,
-    "/": 2
-}
-
-
-def _token_infix(infix):
-    pola = r"\d+(?:\.\d+)?|[()+\-*/]"
+ # menentukan tingkat priotitas dari operator
+def _prio(op):
+    return 2 if (op == "*" or op == "/") else 1
+ 
+# buat cek token diawali angka atau desimal
+def _adalah_angka(tok):
+    c = tok[0]
+    return ("0" <= c <= "9") or c == "."
+ 
+# bikin tokennya buat diproses ke postfix
+def tokenisasi(ekspresi):
     token = []
-    posisi = 0
-
-    for cocok in re.finditer(pola, infix):
-        if infix[posisi:cocok.start()].strip():
-            raise ValueError("Ada karakter yang tidak valid.")
-        token.append(cocok.group())
-        posisi = cocok.end()
-
-    if infix[posisi:].strip() or not token:
-        raise ValueError("Ekspresi kosong atau tidak valid.")
-
+    i = 0
+    n = len(ekspresi)
+  
+    while i < n:
+        c = ekspresi[i]
+        if c == " " or c == "\t":
+            i += 1
+        elif c in "+-*/()":
+            token.append(c)
+            i += 1
+        elif ("0" <= c <= "9") or c == ".":
+            j = i
+            while j < n and (("0" <= ekspresi[j] <= "9") or ekspresi[j] == "."):
+                j += 1
+            token.append(ekspresi[i:j])
+            i = j
+        else:
+            raise ValueError("karakter tidak dikenal: '%s'" % c)
     return token
-
-
-def _isi_stack(stack):
-    return " ".join(
-        str(stack.isi.get(i))
-        for i in range(stack.ukuran())
-    ) or "kosong"
-
-
-def hitung_dengan_jejak(infix):
-    token = _token_infix(infix)
-    stack = Stack()
-    output = []
-    baris = []
-
-    def catat(no, t, tindakan, hasil_output):
-        baris.append((
-            no, t, tindakan,
-            _isi_stack(stack),
-            " ".join(hasil_output) or "kosong"
-        ))
-
-    for i, t in enumerate(token, 1):
-        no = "1." + str(i)
-
-        if re.fullmatch(r"\d+(?:\.\d+)?", t):
-            output.append(t)
-            catat(no, t, "operand, langsung ke output", output)
-
-        elif t == "(":
-            stack.push(t)
-            catat(no, t, "push ( ke stack", output)
-
-        elif t == ")":
-            if stack.kosong() or "(" not in [
-                str(stack.isi.get(j))
-                for j in range(stack.ukuran())
-            ]:
-                raise ValueError("Kurung buka tidak ditemukan.")
-
-            while not stack.kosong() and stack.intip() != "(":
-                output.append(stack.pop())
-
-            stack.pop()
-            catat(no, t, "pop sampai ( ; lalu buang (", output)
-
-        else:
-            while (
-                not stack.kosong()
-                and stack.intip() != "("
-                and PRIORITAS[stack.intip()] >= PRIORITAS[t]
-            ):
-                output.append(stack.pop())
-
-            stack.push(t)
-            catat(no, t, "push operator ke stack", output)
-
-    while not stack.kosong():
-        op = stack.pop()
-        if op == "(":
-            raise ValueError("Kurung tutup tidak ditemukan.")
-        output.append(op)
-        catat("1.akhir", op, "pop sisa stack ke output", output)
-
-    postfix = " ".join(output)
-
-    # Tahap 2: evaluasi postfix
-    stack_hitung = Stack()
-
-    for i, t in enumerate(output, 1):
-        no = "2." + str(i)
-
-        if t not in PRIORITAS:
-            angka = float(t)
-            stack_hitung.push(angka)
-            catat(no, t, "operand, push ke stack", [
-                str(stack_hitung.isi.get(j))
-                for j in range(stack_hitung.ukuran())
-            ])
-        else:
-            if stack_hitung.ukuran() < 2:
-                raise ValueError("Ekspresi tidak valid.")
-
-            b = stack_hitung.pop()
-            a = stack_hitung.pop()
-
-            if t == "+":
-                hasil = a + b
-            elif t == "-":
-                hasil = a - b
-            elif t == "*":
-                hasil = a * b
+ 
+#ubah stack jadi teks
+def _teks_stack(t):
+    isi = t.isi()
+    if len(isi) == 0:
+        return "kosong"
+    return " ".join([str(x) for x in isi])
+ 
+# ubah float ke int terus jadi teks
+def _teks(x):
+    if isinstance(x, float) and x == int(x):
+        return str(int(x))
+    return str(x)
+ 
+# operasi infix kepostfix
+def ke_postfix(ekspresi, jejak=None):
+    token = tokenisasi(ekspresi)
+    if len(token) == 0:
+        raise ValueError("ekspresi kosong")
+    ops = Stack()
+    keluar = []
+    no = 0
+ 
+    def catat(tok, tindakan, label=None):
+        nonlocal no
+        no += 1
+        if jejak is not None:
+            nama = label if label is not None else str(no)
+            jejak.append(["1." + nama, tok, tindakan, _teks_stack(ops), " ".join(keluar)])
+ 
+    for tok in token:
+        if _adalah_angka(tok):
+            keluar.append(tok)
+            catat(tok, "operand, langsung ke output")
+        elif tok == "(":
+            ops.push(tok)
+            catat(tok, "push ( ke stack")
+        elif tok == ")":
+            diambil = []
+            while (not ops.kosong()) and ops.peek() != "(":
+                x = ops.pop()
+                keluar.append(x)
+                diambil.append(x)
+            if ops.kosong():
+                raise ValueError("kurung tutup tanpa pasangan")
+            ops.pop()  # buang '('
+            ket = ("pop sampai ( : " + " ".join(diambil) + ", lalu buang (") if diambil \
+                else "pop sampai (, lalu buang ("
+            catat(tok, ket)
+        else:  # operator
+            diambil = []
+            while (not ops.kosong()) and ops.peek() != "(" and _prio(ops.peek()) >= _prio(tok):
+                x = ops.pop()
+                keluar.append(x)
+                diambil.append(x)
+            ops.push(tok)
+            if diambil:
+                catat(tok, "pop " + " ".join(diambil) + " (sama/lebih kuat), push " + tok)
             else:
-                if b == 0:
-                    raise ZeroDivisionError(
-                        "Tidak bisa membagi dengan nol."
-                    )
-                hasil = a / b
-
-            stack_hitung.push(hasil)
-
-            nilai_stack = [
-                str(stack_hitung.isi.get(j))
-                for j in range(stack_hitung.ukuran())
-            ]
-
-            catat(
-                no, t,
-                "hitung " + str(a) + " " + t + " " + str(b)
-                + " = " + str(hasil),
-                nilai_stack
-            )
-
-    if stack_hitung.ukuran() != 1:
-        raise ValueError("Ekspresi tidak valid.")
-
-    total = stack_hitung.pop()
-
-    if total.is_integer():
-        total = int(total)
-
-    return postfix, total, baris
-
-
-def ke_postfix(infix):
-    postfix, _, _ = hitung_dengan_jejak(infix)
-    return postfix
-
-
-def hitung_postfix(ekspresi_postfix):
-    stack = Stack()
-
-    for t in ekspresi_postfix.split():
-        if t not in PRIORITAS:
-            stack.push(float(t))
-            continue
-
-        if stack.ukuran() < 2:
-            raise ValueError("Ekspresi tidak valid.")
-
-        b = stack.pop()
-        a = stack.pop()
-
-        if t == "+":
-            hasil = a + b
-        elif t == "-":
-            hasil = a - b
-        elif t == "*":
-            hasil = a * b
+                catat(tok, "push " + tok)
+ 
+    sisa = []
+    while not ops.kosong():
+        x = ops.pop()
+        if x == "(":
+            raise ValueError("kurung buka ga ditutup")
+        keluar.append(x)
+        sisa.append(x)
+    catat("akhir", "pop sisa stack: " + (" ".join(sisa) if sisa else "-"), label="akhir")
+    return keluar
+ 
+ 
+def _ke_angka(tok):
+    try:
+        return float(tok) if "." in tok else int(tok)
+    except ValueError:
+        raise ValueError("angka tidak valid: " + tok)
+ 
+ 
+def _terapkan(op, a, b):
+    if op == "+":
+        return a + b
+    if op == "-":
+        return a - b
+    if op == "*":
+        return a * b
+    if b == 0:
+        raise ValueError("pembagian dengan nol")
+    if isinstance(a, int) and isinstance(b, int) and a % b == 0:
+        return a // b
+    return a / b
+ 
+ 
+def hitung(postfix, jejak=None):
+    if isinstance(postfix, str):
+        postfix = tokenisasi(postfix)
+    st = Stack()
+    no = 0
+    for tok in postfix:
+        no += 1
+        if tok in OPERATOR:
+            if len(st) < 2:
+                raise ValueError("ekspresi tidak valid (operand kurang)")
+            b = st.pop()
+            a = st.pop()
+            r = _terapkan(tok, a, b)
+            st.push(r)
+            ket = "pop %s dan %s -> %s%s%s = %s" % (_teks(b), _teks(a), _teks(a), tok, _teks(b), _teks(r))
+            if jejak is not None:
+                jejak.append(["2.%d" % no, tok, ket, _teks_stack(st), _teks(r)])
+        elif tok != "(" and tok != ")" and _adalah_angka(tok):
+            st.push(_ke_angka(tok))
+            if jejak is not None:
+                jejak.append(["2.%d" % no, tok, "operand, push " + tok, _teks_stack(st), ""])
         else:
-            if b == 0:
-                raise ZeroDivisionError("Tidak bisa membagi dengan nol.")
-            hasil = a / b
+            raise ValueError("token tidak valid pada postfix: " + tok)
+    if len(st) != 1:
+        raise ValueError("ekspresi tidak valid (operator kurang)")
+    return st.pop()
+ 
+ 
+def mesin_kasir(ekspresi):
+    jejak = []
+    postfix = ke_postfix(ekspresi, jejak)
+    total = hitung(postfix, jejak)
+    return postfix, total, jejak
+ 
+#Antrean
+class QueueNaif:
+ 
+    def __init__(pesan):
+        pesan._a = Array()
+        pesan.total_geser = 0
+ 
+    def __len__(pesan):
+        return len(pesan._a)
+ 
+    def kapasitas(pesan):
+        return pesan._a.kapasitas()
 
-        stack.push(hasil)
+   #nambah pesanan di belakang
+    def enqueue(pesan, x):
+        pesan._a.append(x)
 
-    if stack.ukuran() != 1:
-        raise ValueError("Ekspresi tidak valid.")
+   #hapus antrean paling depan
+    def dequeue(pesan):
+        if len(pesan._a) == 0:
+            return None
+        x = pesan._a.remove_i(0)
+        pesan.total_geser += pesan._a.geser_terakhir
+        return x
 
-    total = stack.pop()
-    return int(total) if total.is_integer() else total
+    #hapus beberapa pesanan di depan
+    def dequeue_banyak(pesan, k):
+        keluar = []
+        geser = 0
+        for _ in range(k):
+            if len(pesan._a) == 0:
+                break
+            keluar.append(pesan._a.remove_i(0))
+            geser += pesan._a.geser_terakhir
+        pesan.total_geser += geser
+        return keluar, geser
+
+    #hapus antrean terakhir
+    def pop_belakang(pesan):
+        if len(pesan._a) == 0:
+            return None
+        return pesan._a.pop()
+
+    # nambahin pesanan di depan
+    def sisip_depan(pesan, daftar):
+        pesan._a.sisip_depan(daftar)
+        pesan.total_geser += pesan._a.geser_terakhir
+ 
+    def isi(pesan):
+        return pesan._a.potong(0, len(pesan._a))
+ 
+
+# front sama rear nyambung
+class QueueCircular:
+ 
+    def __init__(pesan, kapasitas=1024):
+        if kapasitas < 1:
+            kapasitas = 1
+        pesan._data = [None] * kapasitas
+        pesan.front = 0
+        pesan.rear = 0
+        pesan.count = 0
+        pesan.total_geser = 0   
+ 
+    def __len__(pesan):
+        return pesan.count
+ 
+    def kapasitas(pesan):
+        return len(pesan._data)
+ 
+    def kosong(pesan):
+        return pesan.count == 0
+ 
+    def _tumbuh(pesan):
+        K = len(pesan._data)
+        baru = [None] * (K * 2)
+        for i in range(pesan.count):
+            baru[i] = pesan._data[(pesan.front + i) % K]
+        pesan._data = baru
+        pesan.front = 0
+        pesan.rear = pesan.count
+
+    # tambah pesanan ke paling belakang
+    def enqueue(pesan, x):
+        if pesan.count == len(pesan._data):
+            pesan._tumbuh()
+        pesan._data[pesan.rear] = x
+        pesan.rear = (pesan.rear + 1) % len(pesan._data)
+        pesan.count += 1
 
 
-def hitung(infix):
-    postfix, total, _ = hitung_dengan_jejak(infix)
-    return postfix, total
+    # hapus pesanan paling depan
+    def dequeue(pesan):
+        if pesan.count == 0:
+            return None
+        x = pesan._data[pesan.front]
+        pesan._data[pesan.front] = None
+        pesan.front = (pesan.front + 1) % len(pesan._data)
+        pesan.count -= 1
+        return x
+
+   
+    def dequeue_banyak(pesan, k):
+        keluar = []
+        for _ in range(k):
+            if pesan.count == 0:
+                break
+            keluar.append(pesan.dequeue())
+        return keluar, 0
+
+    # hapus pesanan di belakang
+    def pop_belakang(pesan):
+        if pesan.count == 0:
+            return None
+        K = len(pesan._data)
+        pesan.rear = (pesan.rear - 1) % K
+        x = pesan._data[pesan.rear]
+        pesan._data[pesan.rear] = None
+        pesan.count -= 1
+        return x
+
+
+    #nambahin pesanan ke depan
+    def sisip_depan(pesan, daftar):
+        for t in range(len(daftar) - 1, -1, -1):
+            if pesan.count == len(pesan._data):
+                pesan._tumbuh()
+            pesan.front = (pesan.front - 1) % len(pesan._data)
+            pesan._data[pesan.front] = daftar[t]
+            pesan.count += 1
+
+    # buat baca pesanannya sesuai antrean 
+    def isi(pesan):
+        K = len(pesan._data)
+        hasil = []
+        for i in range(pesan.count):
+            hasil.append(pesan._data[(pesan.front + i) % K])
+        return hasil
+ 
+ # hasil antrean dari naif sama circular
+class Queue:
+   
+    def __init__(pesan):
+        pesan.naif = QueueNaif()
+        pesan.melingkar = QueueCircular()
+        pesan.undo = Stack()
+        pesan.redo = Stack()
+ 
+    def muat_awal(pesan, p):
+        pesan.naif.enqueue(p)
+        pesan.melingkar.enqueue(p)
+ 
+    def enqueue(pesan, p):
+        pesan.naif.enqueue(p)
+        pesan.melingkar.enqueue(p)
+        pesan.undo.push(("ENQUEUE", "", [p]))
+        pesan.redo.kosongkan()      
+
+    def _antrean(pesan, target):
+        return pesan.naif if target == "naif" else pesan.melingkar
+ 
+    def dequeue_naif(pesan, k):
+        keluar, geser = pesan.naif.dequeue_banyak(k)
+        if keluar:
+            pesan.undo.push(("DEQUEUE", "naif", keluar))
+            pesan.redo.kosongkan()
+        return keluar, geser
+ 
+    def dequeue_melingkar(pesan, k):
+        keluar, geser = pesan.melingkar.dequeue_banyak(k)
+        if keluar:
+            pesan.undo.push(("DEQUEUE", "circular", keluar))
+            pesan.redo.kosongkan()
+        return keluar, geser
+ 
+    def undo_last(pesan):
+        if pesan.undo.kosong():
+            return None
+        aksi = pesan.undo.pop()
+        jenis, target, daftar = aksi
+        if jenis == "ENQUEUE":
+            pesan.naif.pop_belakang()
+            pesan.melingkar.pop_belakang()
+        else:
+            pesan._antrean(target).sisip_depan(daftar)
+        pesan.redo.push(aksi)
+        return aksi
+ 
+    def redo_last(pesan):
+        if pesan.redo.kosong():
+            return None
+        aksi = pesan.redo.pop()
+        jenis, target, daftar = aksi
+        if jenis == "ENQUEUE":
+            pesan.naif.enqueue(daftar[0])
+            pesan.melingkar.enqueue(daftar[0])
+        else:
+            pesan._antrean(target).dequeue_banyak(len(daftar))
+        pesan.undo.push(aksi)
+        return aksi
+ 
+    def history(pesan):
+        hasil = []
+        for jenis, target, daftar in pesan.undo.isi():
+            if jenis == "ENQUEUE":
+                hasil.append("ENQUEUE " + daftar[0][I_OID])
+            else:
+                hasil.append("DEQUEUE %s x%d" % (target, len(daftar)))
+        return hasil
+ 
+    def stats(pesan):
+        return [
+            ("queue_len_naif", len(pesan.naif)),
+            ("queue_len_circular", len(pesan.melingkar)),
+            ("queue_capacity", pesan.melingkar.kapasitas()),
+            ("total_geser_naif", pesan.naif.total_geser),
+            ("total_geser_circular", pesan.melingkar.total_geser),
+            ("undo_depth", len(pesan.undo)),
+            ("redo_depth", len(pesan.redo)),]
 
 
 
 
 
 
-
-
+    

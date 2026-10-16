@@ -1,178 +1,166 @@
 
-from .m1 import array, RESTO, STATUS, HARGA, T_MASUK_DETIK, jam
+from .m1 import I_OID, I_HARGA, I_T_SELESAI
+ 
+BATAS_INSERTION = 20000    
+BELUM_SELESAI = 10 ** 12      
+ 
+class Sorting:
+ 
+    def __init__(pesan):
+        pesan.banding = 0
+        pesan.pindah = 0
+ 
+    def reset(pesan):
+        pesan.banding = 0
+        pesan.pindah = 0
+ 
+ 
+def _identitas(x):
+    return x
 
-BATAS_WAKTU = 24 * 3600
-
-
-def laporan(arr, resto="", status="", t_awal=0, t_akhir=BATAS_WAKTU):
-    lap = array()
-
-    for i in range(arr.size):
-        p = arr.get(i)
-
-        if (
-            (resto != "" and p[RESTO] != resto)
-            or (status != "" and p[STATUS] != status)
-            or not t_awal <= p[T_MASUK_DETIK] <= t_akhir
-        ):
-            continue
-
-        lap.append(p)
-
-    return lap
-
-
-def insertion_sort(data, n, kolom):
-    for i in range(1, n):
-        x = data[i]
-        kunci = x[kolom]
-        j = i - 1
-
-        while j >= 0 and data[j][kolom] > kunci:
-            data[j + 1] = data[j]
-            j -= 1
-
-        data[j + 1] = x
-
-
-def merge_sort(data, n, kolom):
-    if n <= 1:
-        return
-
-    sementara = [None] * n
-
-    def bagi(kiri, kanan):
-        if kanan - kiri <= 1:
-            return
-
-        tengah = (kiri + kanan) // 2
-
-        bagi(kiri, tengah)
-        bagi(tengah, kanan)
-
-        i = kiri
-        j = tengah
-        k = kiri
-
-        while i < tengah and j < kanan:
-            if data[i][kolom] <= data[j][kolom]:
-                sementara[k] = data[i]
-                i += 1
-            else:
-                sementara[k] = data[j]
-                j += 1
-            k += 1
-
-        while i < tengah:
-            sementara[k] = data[i]
-            i += 1
-            k += 1
-
-        while j < kanan:
-            sementara[k] = data[j]
-            j += 1
-            k += 1
-
-        for indeks in range(kiri, kanan):
-            data[indeks] = sementara[indeks]
-
-    bagi(0, n)
-
-
-def urutkan(lap, kolom=T_MASUK_DETIK, metode="insertion"):
-    if metode == "insertion":
-        insertion_sort(lap.data, lap.size, kolom)
-
-    elif metode == "merge":
-        merge_sort(lap.data, lap.size, kolom)
-
-    else:
+def kunci_oid(p):
+    return p[I_OID]         
+ 
+def kunci_harga(p):
+    return p[I_HARGA]
+ 
+def kunci_selesai(p):
+    t = p[I_T_SELESAI]
+    return t if t >= 0 else BELUM_SELESAI
+ 
+ 
+NAMA_KUNCI = ("oid", "harga", "selesai")
+ 
+ 
+def pilih_kunci(nama):
+    if nama == "oid":
+        return kunci_oid
+    if nama == "harga":
+        return kunci_harga
+    if nama == "selesai":
+        return kunci_selesai
+    raise ValueError("kunci tidak dikenal: " + nama)
+ 
+ 
+def salin_awal(A, n):
+    if n > len(A):
+        n = len(A)
+    hasil = []
+    for i in range(n):
+        hasil.append(A[i])
+    return hasil
+ 
+ # bandingkan kemudian digeser ke kanan
+def insertion_sort(A, kunci=None, pencacah=None):
+    def insertion_sort(A, kunci=None, pencacah=None):
+      if len(A) > BATAS_INSERTION:
         raise ValueError(
-            "Metode sorting harus insertion atau merge."
+            "Data terlalu besar untuk Insertion Sort"
         )
-    return lap
 
-
-def linear_search(lap, target, kolom=T_MASUK_DETIK):
-    """Mencari semua data yang nilainya sama dengan target."""
-
-    hasil = array()
-
-    for i in range(lap.size):
-        p = lap.get(i)
-
-        if p[kolom] == target:
-            hasil.append(p)
-
+    # Lanjutkan kode Insertion Sort yang sudah ada
+    if kunci is None:
+        kunci = _identitas
+    if pencacah is None:
+        pencacah = Sorting()
+    for i in range(1, len(A)):
+        x = A[i]
+        kx = kunci(x)
+        j = i - 1
+        while j >= 0:
+            pencacah.banding += 1
+            if kunci(A[j]) > kx:
+                A[j + 1] = A[j]
+                pencacah.pindah += 1
+                j -= 1
+            else:
+                break
+        if j + 1 != i:
+            A[j + 1] = x
+            pencacah.pindah += 1
+    return A
+ 
+ 
+# ambil nilai tengah
+def merge_sort(A, kunci=None, pencacah=None):
+    if kunci is None:
+        kunci = _identitas
+    if pencacah is None:
+        pencacah = Sorting()
+    n = len(A)
+    hasil = salin_awal(A, n)
+    buf = [None] * n
+    _ms(hasil, buf, 0, n, kunci, pencacah)
     return hasil
+ 
+# membagi data jadi low, middle, dsa high buat mengurutkan datanya
+def _ms(a, buf, lo, hi, kunci, pc):
+    if hi - lo <= 1:
+        return
+    mid = (lo + hi) // 2
+    _ms(a, buf, lo, mid, kunci, pc)
+    _ms(a, buf, mid, hi, kunci, pc)
+    i = lo
+    j = mid
+    k = lo
 
-def cari_pertama(data, n, target, kolom):
-    kiri = 0
-    kanan = n
-
-    while kiri < kanan:
-        tengah = (kiri + kanan) // 2
-
-        if data[tengah][kolom] < target:
-            kiri = tengah + 1
+    while i < mid and j < hi:
+        pc.banding += 1
+        if kunci(a[i]) <= kunci(a[j]):     
+            buf[k] = a[i]
+            i += 1
         else:
-            kanan = tengah
+            buf[k] = a[j]
+            j += 1
+        k += 1
+        pc.pindah += 1
 
-    if kiri < n and data[kiri][kolom] == target:
-        return kiri
+    #bagian kiri
+    while i < mid:                          
+        buf[k] = a[i]
+        i += 1
+        k += 1
+        pc.pindah += 1
 
+    #bagian kanan
+    while j < hi:                           
+        buf[k] = a[j]
+        j += 1
+        k += 1
+        pc.pindah += 1
+    for t in range(lo, hi):
+        a[t] = buf[t]
+ 
+
+ # bandingkan dengan semua elemen dari awal
+def linear_search(A, target, kunci=None, pencacah=None):
+    if kunci is None:
+        kunci = _identitas
+    if pencacah is None:
+        pencacah = Sorting()
+    for i in range(len(A)):
+        pencacah.banding += 1
+        if kunci(A[i]) == target:
+            return i
     return -1
-
-
-def cari_semua(lap, target, kolom=T_MASUK_DETIK):
-    hasil = array()
-
-    indeks = cari_pertama(
-        lap.data, lap.size, target, kolom
-    )
-
-    if indeks == -1:
-        return hasil
-
-    while (
-        indeks < lap.size
-        and lap.data[indeks][kolom] == target
-    ):
-        hasil.append(lap.data[indeks])
-        indeks += 1
-
-    return hasil
-
-
-def ringkasan(lap):
-    if lap.size == 0:
-        return 0, 0, None, None
-
-    total = 0
-    awal = lap.get(0)[T_MASUK_DETIK]
-    akhir = awal
-
-    for i in range(lap.size):
-        p = lap.get(i)
-        total += p[HARGA]
-
-        if p[T_MASUK_DETIK] < awal:
-            awal = p[T_MASUK_DETIK]
-
-        if p[T_MASUK_DETIK] > akhir:
-            akhir = p[T_MASUK_DETIK]
-
-    return lap.size, total, awal, akhir
-
-
-def teks_ringkasan(lap):
-    jumlah, total, awal, akhir = ringkasan(lap)
-
-    if jumlah == 0:
-        return "Laporan kosong"
-
-    return (
-        "Jumlah " + str(jumlah)
-        + " pesanan | Total Rp" + str(total)
-        + " | " + jam(awal) + " - " + jam(akhir)
-    )
+ 
+ #ambil nilai tengah buat cari data yang udah terurut
+def binary_search(A, target, kunci=None, pencacah=None):
+    if kunci is None:
+        kunci = _identitas
+    if pencacah is None:
+        pencacah = Sorting()
+    lo = 0
+    hi = len(A) - 1
+    while lo <= hi:                         
+        mid = (lo + hi) // 2
+        km = kunci(A[mid])
+        pencacah.banding += 1
+        if km == target:
+            return mid
+        if km < target:
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return -1
+ 
